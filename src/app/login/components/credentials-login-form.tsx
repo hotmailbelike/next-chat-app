@@ -3,7 +3,6 @@
 import { credentialsLogin } from '@/actions/credentials-login';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/auth';
 
 export default function LoginForm() {
 	const router = useRouter();

@@ -4,7 +4,6 @@ import Link from 'next/link';
 
 export default async function Navbar() {
 	const session = await auth();
-	console.log('📣 -> file: Navbar.tsx:7 -> Navbar -> session:', session);
 
 	if (!session) {
 		redirect('/login');
@@ -16,19 +15,32 @@ export default async function Navbar() {
 				<div className='flex justify-between h-16'>
 					<div className='flex'>
 						<div className='flex items-center'>
-							<Link href='/chat' className='text-xl font-bold text-gray-800'>
-								Chat App
-							</Link>
+							<span className='text-xl font-bold text-gray-800'>Next Chat App</span>
 						</div>
 					</div>
 
 					<div className='flex items-center space-x-4'>
-						{/* {session?.user?.role === 'ADMIN' && (
-							<Link href='/admin' className='text-gray-600 hover:text-gray-800'>
-								Admin Panel
+						<div className='flex items-center space-x-2'>
+							{session?.user?.image && (
+								<div className='w-8 h-8 rounded-full overflow-hidden'>
+									<img src={session.user.image} alt='user image' />
+								</div>
+							)}
+							<span className='text-gray-600'>
+								{session?.user?.name}
+								{session.user.role === 'ADMIN' && ' (Admin)'}
+							</span>
+						</div>
+						{session.user.role === 'ADMIN' && (
+							<Link href='/admin-panel'>
+								<button
+									type='button'
+									className='bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md'
+								>
+									Admin Panel
+								</button>
 							</Link>
-						)} */}
-						<span className='text-gray-600'>{session?.user?.name}</span>
+						)}
 						<button
 							type='button'
 							onClick={async () => {

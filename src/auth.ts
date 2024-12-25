@@ -12,7 +12,15 @@ const adapter = PrismaAdapter(prisma); // TODO: Fix this type error - DrizzleAda
 export const { handlers, signIn, signOut, auth } = NextAuth({
 	adapter,
 	providers: [
-		Google,
+		Google({
+			authorization: {
+				params: {
+					prompt: 'consent',
+					access_type: 'offline',
+					response_type: 'code',
+				},
+			},
+		}),
 		Credentials({
 			credentials: {
 				email: {},
@@ -44,7 +52,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 	callbacks: {
 		async session({ session, user }) {
 			session.user.id = user.id;
-			//@ts-ignore
+			// @ts-expect-error
 			session.user.role = user.role;
 			return session;
 		},
@@ -55,7 +63,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
 			if (user) {
 				token.id = user.id;
-				//@ts-ignore
+				// @ts-expect-error
 				token.role = user.role;
 			}
 			return token;

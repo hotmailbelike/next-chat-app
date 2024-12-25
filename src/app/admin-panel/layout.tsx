@@ -1,14 +1,16 @@
-// import ChatSidebar from '@/components/ChatSidebar';
-import Navbar from '@/components/Navbar';
+import Navbar from '@/components/navbar';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/app-sidebar';
 
-export default function AdminPanelLayout({ children }: { children: React.ReactNode }) {
+export default function ChatDashboardLayout({ children }: { children: React.ReactNode }) {
 	return (
-		<div>
+		<SidebarProvider>
+			<AppSidebar />
+
 			<Navbar />
-			<div className='flex pt-16'>
-				{/* <ChatSidebar /> */}
-				<main className='flex-1'>{children}</main>
+			<div className='pt-28 px-16 w-full'>
+				<main>{children}</main>
 			</div>
-		</div>
+		</SidebarProvider>
 	);
 }
