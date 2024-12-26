@@ -52,7 +52,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 	callbacks: {
 		async session({ session, user }) {
 			session.user.id = user.id;
-			// @ts-expect-error
+			// @ts-expect-error - user does have the role property
 			session.user.role = user.role;
 			return session;
 		},
@@ -63,7 +63,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
 			if (user) {
 				token.id = user.id;
-				// @ts-expect-error
+				// @ts-expect-error - user does have the role property
 				token.role = user.role;
 			}
 			return token;
