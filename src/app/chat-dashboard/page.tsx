@@ -1,3 +1,5 @@
 export default function ChatDashboard() {
-	return <>Chat Dashboard</>;
+	return (
+		<div className='text-lg font-semibold'>Select a chat group to start texting!</div>
+	);
 }

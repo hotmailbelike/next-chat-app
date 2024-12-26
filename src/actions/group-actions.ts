@@ -24,5 +24,11 @@ export const deleteGroup = async (id: string) => {
 		},
 	});
 
+	await prisma.message.deleteMany({
+		where: {
+			groupId: id,
+		},
+	});
+
 	return group;
 };
