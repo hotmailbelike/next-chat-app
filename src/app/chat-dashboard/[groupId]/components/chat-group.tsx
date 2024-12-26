@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-// import Pusher from 'pusher-js';
 import { Session } from 'next-auth';
 import { Message as PrismaMessage, User, Group } from '@prisma/client';
 import { createMessage, listMessagesByGroup } from '@/actions/message-actions';
@@ -12,6 +11,8 @@ type Message = PrismaMessage & {
 	group: Group;
 };
 
+const limit = 50;
+
 export default function ChatGroup({
 	groupId,
 	user,
@@ -21,14 +22,15 @@ export default function ChatGroup({
 }) {
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [newMessage, setNewMessage] = useState('');
-	const [loading, setLoading] = useState(true);
+	const [cursor, setCursor] = useState<string | undefined>(undefined);
+	const [loading, setIsLoading] = useState<boolean>(false);
+	const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
 	const [hasMore, setHasMore] = useState(true);
-	const observerTarget = useRef<HTMLDivElement>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
 	// Scroll to bottom on new message
 	const scrollToBottom = () => {
-		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+		messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
 	};
 
 	const getInitials = (name: string) => {
@@ -65,102 +67,11 @@ export default function ChatGroup({
 		}
 	};
 
-	useEffect(() => {
-		let cursor: string | null = null;
-		let isLoading = false;
-
-		const loadMessages = async () => {
-			if (isLoading || !hasMore) return;
-
-			isLoading = true;
-			setLoading(true);
-
-			try {
-				// const queryParams = new URLSearchParams();
-				// queryParams.append('groupId', groupId);
-				// if (cursor) queryParams.append('cursor', cursor);
-
-				// const response = await fetch(`/api/messages?${queryParams}`);
-				// const data = await response.json();
-				const data = await listMessagesByGroup(groupId);
-
-				if (data.length < 50) {
-					// Assuming page size is 50
-					setHasMore(false);
-				}
-
-				if (data.length > 0) {
-					cursor = data[data.length - 1].id;
-					setMessages((prev) => [...prev, ...data]);
-				}
-			} catch (error) {
-				console.error('Failed to fetch messages:', error);
-			} finally {
-				isLoading = false;
-				setLoading(false);
-			}
-		};
-
-		// Set up intersection observer for infinite scroll
-		const observer = new IntersectionObserver(
-			(entries) => {
-				if (entries[0].isIntersecting) {
-					// loadMessages();
-				}
-			},
-			{ threshold: 0.5 }
-		);
-
-		if (observerTarget.current) {
-			observer.observe(observerTarget.current);
-		}
-
-		// Initial load
-		loadMessages();
-
-		return () => {
-			if (observerTarget.current) {
-				observer.unobserve(observerTarget.current);
-			}
-		};
-	}, []);
-
-	// Set up real-time updates
-	useEffect(() => {
-		// const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-		// 	cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-		// });
-
-		// const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-		// 	cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-		// });
-
-		const channel = pusherClient.subscribe(`group-${groupId}`);
-		channel.bind('new-message', (data: { message: Message }) => {
-			setMessages((prev) => [...prev, data.message]);
-			// setMessages((prev) => [data.message, ...prev]);
-
-			scrollToBottom();
-		});
-
-		return () => {
-			// channel.unbind_all();
-			// channel.unsubscribe();
-			pusherClient.unbind_all();
-			pusherClient.unsubscribe(`group-${groupId}`);
-		};
-	}, []);
-
 	const sendMessage = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!newMessage.trim()) return;
 
 		try {
-			// await fetch('/api/messages', {
-			// 	method: 'POST',
-			// 	headers: { 'Content-Type': 'application/json' },
-			// 	body: JSON.stringify({ content: newMessage, groupId }),
-			// });
 			await createMessage(groupId, user?.id as string, newMessage);
 			setNewMessage('');
 		} catch (error) {
@@ -168,67 +79,148 @@ export default function ChatGroup({
 		}
 	};
 
+	const handleLoadMoreMessages = async () => {
+		setLoadingMoreMessages(true);
+		const data = await listMessagesByGroup(groupId, cursor);
+
+		if (data.length < limit) {
+			setHasMore(false);
+		}
+
+		if (data.length > 0) {
+			setCursor(data[data.length - 1].id);
+			setMessages((prev) => [...data.reverse(), ...prev]);
+		}
+
+		setLoadingMoreMessages(false);
+	};
+
 	useEffect(() => {
-		if (!loading && messages.length > 0) {
+		const loadMessages = async () => {
+			try {
+				const data = await listMessagesByGroup(groupId);
+
+				if (data.length < limit) {
+					setHasMore(false);
+				}
+
+				if (data.length > 0) {
+					setCursor(data[data.length - 1].id);
+					setMessages(data.reverse());
+				}
+			} catch (error) {
+				console.error('Failed to fetch messages:', error);
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		setIsLoading(true);
+		loadMessages();
+	}, []);
+
+	// Set up real-time updates
+	useEffect(() => {
+		const channel = pusherClient.subscribe(`group-${groupId}`);
+		channel.bind('new-message', (data: { message: Message }) => {
+			setMessages((prev) => [...prev, data.message]);
+
+			scrollToBottom();
+		});
+
+		return () => {
+			pusherClient.unbind_all();
+			pusherClient.unsubscribe(`group-${groupId}`);
+		};
+	}, []);
+
+	useEffect(() => {
+		// scroll to bottom only on initial load
+		if (!loading && messages.length == limit) {
 			scrollToBottom();
 		}
 	}, [loading, messages.length]);
 
+	if (loading) {
+		return (
+			<div className='flex justify-center items-center h-full'>
+				<div className='animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900'></div>
+			</div>
+		);
+	}
+
 	return (
 		<div className='flex flex-col h-full bg-gray-50 mb-10'>
-			<div className='flex-1 overflow-y-auto p-4'>
-				{loading ? (
-					<div className='flex justify-center items-center h-full'>
-						<div className='animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900'></div>
-					</div>
-				) : messages.length === 0 ? (
-					<div className='flex flex-col items-center justify-center h-full text-gray-500 space-y-4'>
-						<div className='text-xl font-medium'>No messages yet</div>
-						<div className='text-sm'>Be the first to send a message!</div>
-					</div>
-				) : (
-					<div className='space-y-6'>
-						{messages.map((message) => (
-							<div
-								key={`${message.id}-${message.user.name}`}
-								className='flex space-x-3 group hover:bg-gray-100 p-2 rounded-lg'
+			<div className='flex-1 p-4'>
+				<div className='space-y-6'>
+					{loading && (
+						<div className='flex justify-center items-center h-full'>
+							<div className='animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900'></div>
+						</div>
+					)}
+					{loadingMoreMessages ? (
+						<div className='flex justify-center items-center h-full'>
+							<div className='animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900'></div>
+						</div>
+					) : hasMore ? (
+						<div className='flex justify-center'>
+							<button
+								onClick={() => handleLoadMoreMessages()}
+								className='mt-4 px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
 							>
-								{/* Avatar */}
-								<div className='flex-shrink-0'>
-									<div className='w-10 h-10 rounded-full overflow-hidden'>
-										{message?.user?.image ? (
-											<img
-												src={message.user.image}
-												alt={message.user.name}
-												className='w-full h-full object-cover'
-											/>
-										) : (
-											<div className='w-full h-full bg-blue-600 flex items-center justify-center text-white font-medium'>
-												{getInitials(message.user.name)}
-											</div>
-										)}
-									</div>
-								</div>
-
-								{/* Message Content */}
-								<div className='flex-1 min-w-0'>
-									<div className='flex items-baseline'>
-										<span className='text-sm font-medium text-gray-900'>
-											{message.user.name}
-										</span>
-										<span className='ml-2 text-xs text-gray-500'>
-											{formatMessageDate(message.createdAt as unknown as string)}
-										</span>
-									</div>
-									<div className='mt-1 text-sm text-gray-800'>{message.content}</div>
+								Load More
+							</button>
+						</div>
+					) : (
+						<div></div>
+					)}
+					{messages.map((message) => (
+						<div
+							key={`${message.id}-${message.user.name}`}
+							className='flex space-x-3 group hover:bg-gray-100 p-2 rounded-lg'
+						>
+							{/* Avatar */}
+							<div className='flex-shrink-0'>
+								<div className='w-10 h-10 rounded-full overflow-hidden'>
+									{message?.user?.image ? (
+										<img
+											src={message.user.image}
+											alt={message.user.name}
+											className='w-full h-full object-cover'
+										/>
+									) : (
+										<div className='w-full h-full bg-blue-600 flex items-center justify-center text-white font-medium'>
+											{getInitials(message.user.name)}
+										</div>
+									)}
 								</div>
 							</div>
-						))}
-						{/* <div ref={observerTarget} className='h-4' /> */}
-						{/* <div ref={messagesEndRef} className='' /> */}
-					</div>
-				)}
+
+							{/* Message Content */}
+							<div className='flex-1 min-w-0'>
+								<div className='flex items-baseline'>
+									<span className='text-sm font-medium text-gray-900'>
+										{message.user.name}
+									</span>
+									<span className='ml-2 text-xs text-gray-500'>
+										{formatMessageDate(message.createdAt as unknown as string)}
+									</span>
+								</div>
+								<div className='mt-1 text-sm text-gray-800'>{message.content}</div>
+							</div>
+						</div>
+					))}
+				</div>
 			</div>
+
+			{/* No Message*/}
+
+			{!loading && messages.length === 0 && (
+				<div className='flex flex-col items-center justify-center h-full text-gray-500 space-y-4'>
+					<div className='text-xl font-medium'>No messages yet</div>
+					<div className='text-sm'>Be the first to send a message!</div>
+				</div>
+			)}
 
 			{/* Message Input */}
 			<div className='border-t bg-white p-4' ref={messagesEndRef}>

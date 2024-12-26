@@ -6,10 +6,9 @@ import {
 	SidebarGroup,
 	SidebarGroupContent,
 	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import Link from 'next/link';
+
+import SideBarButtons from './sidebar-buttons';
 
 export async function AppSidebar() {
 	const session = await auth();
@@ -21,27 +20,7 @@ export async function AppSidebar() {
 				<SidebarGroup>
 					<SidebarGroupContent>
 						<SidebarMenu>
-							{session?.user.role !== 'ADMIN'
-								? groups
-										.filter(({ name }) => name !== 'Admin Chat')
-										.map((group) => (
-											<SidebarMenuItem key={group.id}>
-												<SidebarMenuButton asChild>
-													<Link href={'/chat-dashboard/' + group.id}>
-														<span>{group.name}</span>
-													</Link>
-												</SidebarMenuButton>
-											</SidebarMenuItem>
-										))
-								: groups.map((group) => (
-										<SidebarMenuItem key={group.id}>
-											<SidebarMenuButton asChild>
-												<Link href={'/chat-dashboard/' + group.id}>
-													<span>{group.name}</span>
-												</Link>
-											</SidebarMenuButton>
-										</SidebarMenuItem>
-								  ))}
+							<SideBarButtons groups={groups} role={session?.user.role as string} />
 						</SidebarMenu>
 					</SidebarGroupContent>
 				</SidebarGroup>

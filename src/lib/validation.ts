@@ -26,6 +26,7 @@ export const SignupSchema = z
 export const MessageSchema = z.object({
 	content: z.string().min(1),
 	groupId: z.string(),
+	userId: z.string(),
 });
 
 export const GroupSchema = z.object({

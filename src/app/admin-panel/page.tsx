@@ -15,7 +15,7 @@ export default async function AdminPanel() {
 				{/* Left Column: List of Chat Groups */}
 				<div>
 					{chatGroups.map(({ id, name }) => (
-						<ChatGroupCard groupId={id} groupName={name} />
+						<ChatGroupCard key={id} groupId={id} groupName={name} />
 					))}
 				</div>
 
